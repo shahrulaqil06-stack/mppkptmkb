@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Cadangan Pelajar MPP</title>
+    <style>
+        :root { --primary: #003366; --accent: #f1c40f; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: var(--primary); margin-bottom: 1.5rem; }
+        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #002244; }
+        .hidden { display: none; }
+        .admin-link { margin-top: 20px; font-size: 0.8rem; color: #888; cursor: pointer; text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="mainCard">
+    <div id="step1">
+        <h2>Sistem Cadangan MPP</h2>
+        <input type="text" id="studentId" placeholder="Masukkan No. ID Pelajar">
+        <button onclick="nextStep()">Teruskan</button>
+        <p class="admin-link" onclick="showAdminLogin()">Admin Login</p>
+    </div>
+
+    <div id="step2" class="hidden">
+        <h2>Cadangan Anda</h2>
+        <textarea id="suggestion" rows="5" placeholder="Tuliskan cadangan anda di sini..."></textarea>
+        <button id="submitBtn" onclick="submitData()">Hantar Cadangan</button>
+    </div>
+
+    <div id="adminPanel" class="hidden">
+        <h2>Admin Panel</h2>
+        <div id="loginSection">
+            <input type="password" id="adminPass" placeholder="Kata Laluan Admin">
+            <button onclick="loginAdmin()">Log Masuk</button>
+        </div>
+        <div id="dataSection" class="hidden">
+            <div style="overflow-x:auto;">
+                <table id="dataTable"><thead><tr><th>Tarikh</th><th>ID</th><th>Cadangan</th></tr></thead><tbody></tbody></table>
+            </div>
+            <button onclick="location.reload()" style="margin-top:10px; background:#666;">Kembali</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SCRIPT_URL = "AKfycbxxB74vlRknBrLUI34oHJkauWKGAHaaf4ZURk8HR4gLx8AvkJiz0ti5CK9UYdfonXU3";
+
+    function nextStep() {
+        const id = document.getElementById('studentId').value;
+        if(id) {
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+        } else { alert("Sila masukkan ID!"); }
+    }
+
+    function showAdminLogin() {
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('adminPanel').classList.remove('hidden');
+    }
+
+    async function submitData() {
+        const id = document.getElementById('studentId').value;
+        const suggestion = document.getElementById('suggestion').value;
+        const btn = document.getElementById('submitBtn');
+        
+        if(!suggestion) return alert("Sila isi cadangan!");
+        
+        btn.disabled = true;
+        btn.innerText = "Menghantar...";
+
+        try {
+            await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: 'submit', id: id, suggestion: suggestion })
+            });
+            alert("Terima kasih! Cadangan telah dihantar.");
+            location.reload();
+        } catch (e) {
+            alert("Ralat berlaku. Sila cuba lagi.");
+            btn.disabled = false;
+        }
+    }
+
+    async function loginAdmin() {
+        const pass = document.getElementById('adminPass').value;
+        if(pass !== 'mpp2526') return alert("Katalaluan Salah!");
+
+        try {
+            const res = await fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: 'getData', password: pass })
+            });
+            const data = await res.json();
+            const tbody = document.querySelector("#dataTable tbody");
+            tbody.innerHTML = "";
+            
+            data.slice(1).forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.innerText = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dataSection').classList.remove('hidden');
+        } catch (e) { alert("Gagal mengambil data."); }
+    }
+</script>
+
+</body>
+</html>
