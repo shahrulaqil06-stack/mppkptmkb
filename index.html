@@ -3,119 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Cadangan Pelajar MPP</title>
+    <title>E-Cadangan KPTMKB</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & Babel CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase SDK (Compat Version for CDN) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
-        :root { --primary: #003366; --accent: #f1c40f; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        h2 { color: var(--primary); margin-bottom: 1.5rem; }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #002244; }
-        .hidden { display: none; }
-        .admin-link { margin-top: 20px; font-size: 0.8rem; color: #888; cursor: pointer; text-decoration: underline; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c084fc; border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="bg-slate-100">
+    <div id="root"></div>
 
-<div class="container" id="mainCard">
-    <div id="step1">
-        <h2>Sistem Cadangan MPP</h2>
-        <input type="text" id="studentId" placeholder="Masukkan No. ID Pelajar">
-        <button onclick="nextStep()">Teruskan</button>
-        <p class="admin-link" onclick="showAdminLogin()">Admin Login</p>
-    </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-    <div id="step2" class="hidden">
-        <h2>Cadangan Anda</h2>
-        <textarea id="suggestion" rows="5" placeholder="Tuliskan cadangan anda di sini..."></textarea>
-        <button id="submitBtn" onclick="submitData()">Hantar Cadangan</button>
-    </div>
+        /**
+         * Komponen Ikon tersuai untuk menggunakan Lucide dalam React
+         */
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
 
-    <div id="adminPanel" class="hidden">
-        <h2>Admin Panel</h2>
-        <div id="loginSection">
-            <input type="password" id="adminPass" placeholder="Kata Laluan Admin">
-            <button onclick="loginAdmin()">Log Masuk</button>
-        </div>
-        <div id="dataSection" class="hidden">
-            <div style="overflow-x:auto;">
-                <table id="dataTable"><thead><tr><th>Tarikh</th><th>ID</th><th>Cadangan</th></tr></thead><tbody></tbody></table>
-            </div>
-            <button onclick="location.reload()" style="margin-top:10px; background:#666;">Kembali</button>
-        </div>
-    </div>
-</div>
+            useEffect(() => {
+                if (iconRef.current && lucide[name]) {
+                    iconRef.current.innerHTML = '';
+                    const iconNode = lucide.createIcons({
+                        icons: { [name]: lucide[name] },
+                        nameAttr: 'data-lucide',
+                        attrs: {
+                            strokeWidth: 2,
+                            width: size,
+                            height: size,
+                            class: className
+                        }
+                    });
+                }
+            }, [name, size, className]);
 
-<script>
-    const SCRIPT_URL = "AKfycbxxB74vlRknBrLUI34oHJkauWKGAHaaf4ZURk8HR4gLx8AvkJiz0ti5CK9UYdfonXU3";
+            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
+        };
 
-    function nextStep() {
-        const id = document.getElementById('studentId').value;
-        if(id) {
-            document.getElementById('step1').classList.add('hidden');
-            document.getElementById('step2').classList.remove('hidden');
-        } else { alert("Sila masukkan ID!"); }
-    }
+        // --- Konfigurasi ---
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxhjHOIX31y2EKlKb8tujWXVzsC2PYYQTuQz76DkhJX2TP7Sv0DYy3AtqCF3n7w-ivv/exec";
 
-    function showAdminLogin() {
-        document.getElementById('step1').classList.add('hidden');
-        document.getElementById('adminPanel').classList.remove('hidden');
-    }
+        function App() {
+            const [step, setStep] = useState(1);
+            const [studentId, setStudentId] = useState('');
+            const [categories, setCategories] = useState([]);
+            const [suggestions, setSuggestions] = useState({});
+            const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [errorMessage, setErrorMessage] = useState('');
+            const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+            const [adminPassword, setAdminPassword] = useState('');
 
-    async function submitData() {
-        const id = document.getElementById('studentId').value;
-        const suggestion = document.getElementById('suggestion').value;
-        const btn = document.getElementById('submitBtn');
-        
-        if(!suggestion) return alert("Sila isi cadangan!");
-        
-        btn.disabled = true;
-        btn.innerText = "Menghantar...";
+            const categoryOptions = [
+                { ms: 'Umum', en: 'General' },
+                { ms: 'Kediaman', en: 'Accommodation' },
+                { ms: 'Kewangan', en: 'Finance' },
+                { ms: 'Pentadbiran', en: 'Administration' },
+                { ms: 'Akademik', en: 'Academic' },
+                { ms: 'Fasiliti', en: 'Facilities' }
+            ];
 
-        try {
-            await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: 'submit', id: id, suggestion: suggestion })
-            });
-            alert("Terima kasih! Cadangan telah dihantar.");
-            location.reload();
-        } catch (e) {
-            alert("Ralat berlaku. Sila cuba lagi.");
-            btn.disabled = false;
+            const dropdownRef = useRef(null);
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                        setIsDropdownOpen(false);
+                    }
+                };
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => document.removeEventListener("mousedown", handleClickOutside);
+            }, []);
+
+            const handleIdSubmit = (e) => {
+                e.preventDefault();
+                if (!studentId.trim()) {
+                    setErrorMessage('Sila masukkan No. ID Pelajar / Please enter Student ID.');
+                    return;
+                }
+                setStudentId(studentId.toUpperCase().trim());
+                setErrorMessage('');
+                setStep(2);
+            };
+
+            const handleFinalSubmit = async () => {
+                if (categories.length === 0) {
+                    setErrorMessage('Sila pilih sekurang-kurangnya satu kategori / Please select at least one category.');
+                    return;
+                }
+                setIsSubmitting(true);
+                
+                const submissionData = {
+                    studentId,
+                    categories: categories,
+                    suggestions: suggestions
+                };
+
+                try {
+                    // Menggunakan JSON stringify untuk padanan Code.gs doPost
+                    await fetch(GOOGLE_SHEET_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(submissionData)
+                    });
+                    setStep(3);
+                } catch (error) {
+                    setErrorMessage('Gagal menghantar. Sila periksa sambungan internet / Submission failed. Please check internet connection.');
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            const handleAdminAuth = () => {
+                if (adminPassword === 'mpp2526') {
+                    setIsAdminUnlocked(true);
+                } else {
+                    alert('Kata laluan salah! / Incorrect password!');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center sm:pt-10">
+                    <div className="bg-white shadow-2xl w-full max-w-4xl min-h-[80vh] sm:rounded-[2.5rem] overflow-hidden flex flex-col">
+                        
+                        {/* Header */}
+                        <div className="bg-purple-900 text-white p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-white p-2 rounded-xl flex gap-2">
+                                    <img src="https://iili.io/B6vhrXa.md.png" className="h-8" alt="Logo KPTM" />
+                                    <img src="https://iili.io/B6vj6u9.png" className="h-8" alt="Logo MPP" />
+                                </div>
+                                <div>
+                                    <h1 className="text-lg font-bold">E-Cadangan KPTMKB</h1>
+                                    <p className="text-[10px] text-purple-300 uppercase font-bold tracking-widest">Student Feedback Portal • Portal Maklum Balas</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setStep(4)} className="bg-purple-800 p-2 px-4 rounded-full text-xs flex items-center gap-2 hover:bg-purple-700 transition-colors">
+                                <Icon name="Lock" size={14} /> Admin
+                            </button>
+                        </div>
+
+                        <div className="flex-grow p-6">
+                            {step === 1 && (
+                                <div className="h-full flex flex-col items-center justify-center space-y-6 py-12">
+                                    <Icon name="UserCircle" size={80} className="text-purple-600" />
+                                    <div className="text-center">
+                                        <h2 className="text-2xl font-black uppercase">E-Cadangan MPP 2026</h2>
+                                        <p className="text-gray-500 text-sm">Masukkan ID Pelajar untuk bermula<br/><span className="italic text-xs">Enter Student ID to begin</span></p>
+                                    </div>
+                                    <form onSubmit={handleIdSubmit} className="w-full max-w-xs space-y-4">
+                                        <input 
+                                            type="text" 
+                                            placeholder="KBJXXXXXXXX"
+                                            className="w-full p-4 bg-gray-50 border-2 rounded-2xl text-center font-bold focus:border-purple-600 outline-none uppercase"
+                                            value={studentId}
+                                            onChange={(e) => setStudentId(e.target.value)}
+                                        />
+                                        {errorMessage && <p className="text-red-500 text-xs text-center font-bold">{errorMessage}</p>}
+                                        <button className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold uppercase hover:bg-purple-700 transition-all">
+                                            Seterusnya / Next
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className="max-w-2xl mx-auto space-y-6">
+                                    <div className="bg-purple-50 p-4 rounded-xl flex justify-between items-center">
+                                        <span className="font-bold text-purple-900">ID: {studentId}</span>
+                                        <span className="text-[10px] text-purple-400 font-bold uppercase italic">Borang Aktif / Active Form</span>
+                                    </div>
+
+                                    <div className="relative" ref={dropdownRef}>
+                                        <label className="text-xs font-black uppercase text-gray-400 mb-2 block text-center sm:text-left">Pilih Kategori / Select Categories</label>
+                                        <button 
+                                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                            className="w-full p-4 bg-white border-2 border-purple-100 rounded-xl flex justify-between items-center"
+                                        >
+                                            <span className="font-medium text-sm">
+                                                {categories.length === 0 ? 'Sila pilih kategori...' : `${categories.length} kategori dipilih`}
+                                            </span>
+                                            <Icon name="ChevronDown" size={20} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        {isDropdownOpen && (
+                                            <div className="absolute z-20 w-full mt-2 bg-white border shadow-2xl rounded-2xl p-2 max-h-60 overflow-auto custom-scrollbar">
+                                                {categoryOptions.map(cat => (
+                                                    <div 
+                                                        key={cat.ms} 
+                                                        onClick={() => {
+                                                            if (categories.includes(cat.ms)) setCategories(categories.filter(c => c !== cat.ms));
+                                                            else setCategories([...categories, cat.ms]);
+                                                        }}
+                                                        className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 mb-1 ${categories.includes(cat.ms) ? 'bg-purple-50' : 'hover:bg-gray-50'}`}
+                                                    >
+                                                        <Icon name="CheckSquare" size={20} className={`${categories.includes(cat.ms) ? 'text-purple-600' : 'text-gray-300'}`} />
+                                                        <div>
+                                                            <p className="text-sm font-bold">{cat.ms}</p>
+                                                            <p className="text-[10px] text-gray-400 italic">{cat.en}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {categories.map(cat => (
+                                        <div key={cat} className="space-y-2 animate-in fade-in duration-300">
+                                            <label className="text-[10px] font-black uppercase text-purple-600">{cat} ({categoryOptions.find(o => o.ms === cat).en})</label>
+                                            <textarea 
+                                                className="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-purple-200 outline-none h-32 text-sm transition-all"
+                                                placeholder={`Tulis cadangan anda di sini... / Write your suggestions here...`}
+                                                value={suggestions[cat] || ''}
+                                                onChange={(e) => setSuggestions({...suggestions, [cat]: e.target.value})}
+                                            />
+                                        </div>
+                                    ))}
+
+                                    <div className="pt-6 border-t">
+                                        {errorMessage && <p className="text-red-500 text-xs font-bold mb-4 flex items-center gap-2"><Icon name="AlertCircle" size={14}/> {errorMessage}</p>}
+                                        <button 
+                                            disabled={isSubmitting}
+                                            onClick={handleFinalSubmit}
+                                            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black uppercase shadow-lg hover:bg-purple-700 disabled:opacity-50 transition-all active:scale-95"
+                                        >
+                                            {isSubmitting ? 'Menghantar... / Sending...' : 'Hantar Suara Pelajar / Submit Voice'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {step === 3 && (
+                                <div className="h-full flex flex-col items-center justify-center space-y-6 py-20 text-center">
+                                    <div className="bg-green-50 p-6 rounded-full">
+                                        <Icon name="CheckCircle2" size={60} className="text-green-500" />
+                                    </div>
+                                    <h2 className="text-2xl font-black uppercase">Berjaya Dihantar!<br/><span className="text-lg">Successfully Submitted!</span></h2>
+                                    <p className="text-gray-500 text-sm max-w-xs">Terima kasih atas maklum balas anda. Suara anda amat berharga.<br/><span className="italic text-xs">Thank you for your feedback. Your voice matters.</span></p>
+                                    <button onClick={() => window.location.reload()} className="bg-purple-100 text-purple-700 px-10 py-3 rounded-xl font-bold hover:bg-purple-200 transition-all">
+                                        Kembali / Back
+                                    </button>
+                                </div>
+                            )}
+
+                            {step === 4 && (
+                                <div className="h-full">
+                                    {!isAdminUnlocked ? (
+                                        <div className="h-full flex flex-col items-center justify-center space-y-4 py-12">
+                                            <Icon name="ShieldCheck" size={60} className="text-purple-200" />
+                                            <input 
+                                                type="password" 
+                                                placeholder="Kata Laluan Admin / Password"
+                                                className="p-4 bg-gray-100 rounded-xl text-center outline-none focus:ring-2 ring-purple-600 w-64 border-2 border-transparent focus:border-purple-200"
+                                                value={adminPassword}
+                                                onChange={(e) => setAdminPassword(e.target.value)}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setStep(1)} className="bg-gray-200 text-gray-600 px-6 py-3 rounded-xl font-bold text-sm">Batal / Cancel</button>
+                                                <button onClick={handleAdminAuth} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-bold text-sm">Masuk / Login</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <button onClick={() => setStep(1)} className="flex items-center gap-2 text-sm font-bold text-purple-600">
+                                                    <Icon name="ArrowLeft" size={16}/> Kembali / Back
+                                                </button>
+                                                <h2 className="font-black uppercase text-sm">Log Admin / Admin Panel</h2>
+                                            </div>
+                                            <div className="p-10 text-center border-2 border-dashed rounded-3xl text-gray-400 italic">
+                                                Gunakan Google Sheets untuk melihat rekod penuh secara langsung.<br/>
+                                                <span className="text-xs">Use Google Sheets to view full records live.</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <footer className="p-10 text-center text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                        © 2026 MPP KPTMKB • Suara Pelajar, Nadi Kolej • GitHub Pages Ready
+                    </footer>
+                </div>
+            );
         }
-    }
 
-    async function loginAdmin() {
-        const pass = document.getElementById('adminPass').value;
-        if(pass !== 'mpp2526') return alert("Katalaluan Salah!");
-
-        try {
-            const res = await fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: 'getData', password: pass })
-            });
-            const data = await res.json();
-            const tbody = document.querySelector("#dataTable tbody");
-            tbody.innerHTML = "";
-            
-            data.slice(1).forEach(row => {
-                const tr = document.createElement('tr');
-                row.forEach(cell => {
-                    const td = document.createElement('td');
-                    td.innerText = cell;
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('loginSection').classList.add('hidden');
-            document.getElementById('dataSection').classList.remove('hidden');
-        } catch (e) { alert("Gagal mengambil data."); }
-    }
-</script>
-
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
